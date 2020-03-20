@@ -199,6 +199,8 @@ static int _i2s_read(audio_element_handle_t self, char *buffer, int len, TickTyp
     i2s_stream_t *i2s = (i2s_stream_t *)audio_element_getdata(self);
     size_t bytes_read = 0;
     i2s_read(i2s->config.i2s_port, buffer, len, &bytes_read, ticks_to_wait);
+    ESP_LOGI(TAG, "read %d bytes", bytes_read);
+    ESP_LOGI(TAG, "buffer %d", *((uint32_t *)buffer));
     audio_element_info_t info;
     audio_element_getinfo(self, &info);
     if (bytes_read > 0) {

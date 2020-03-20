@@ -41,7 +41,7 @@ esp_err_t _http_stream_event_handle(http_stream_event_msg_t *msg)
     if (msg->event_id == HTTP_STREAM_PRE_REQUEST) {
         // set header
         ESP_LOGI(TAG, "[ + ] HTTP client HTTP_STREAM_PRE_REQUEST, lenght=%d", msg->buffer_len);
-        esp_http_client_set_header(http, "x-audio-sample-rates", "16000");
+        esp_http_client_set_header(http, "x-audio-sample-rates", "48000");
         esp_http_client_set_header(http, "x-audio-bits", "16");
         esp_http_client_set_header(http, "x-audio-channel", "2");
         total_write = 0;
@@ -61,7 +61,7 @@ esp_err_t _http_stream_event_handle(http_stream_event_msg_t *msg)
             return ESP_FAIL;
         }
         total_write += msg->buffer_len;
-        printf("\033[A\33[2K\rTotal bytes written: %d\n", total_write);
+        //printf("\033[A\33[2K\rTotal bytes written: %d\n", total_write);
         return msg->buffer_len;
     }
 
@@ -95,8 +95,8 @@ void app_main(void)
     audio_pipeline_handle_t pipeline;
     audio_element_handle_t http_stream_writer, i2s_stream_reader;
 
-    esp_log_level_set("*", ESP_LOG_WARN);
-    esp_log_level_set(TAG, ESP_LOG_INFO);
+    esp_log_level_set("*", ESP_LOG_VERBOSE);
+    esp_log_level_set("PERIPH_BUTTON", ESP_LOG_VERBOSE);
 
     esp_err_t err = nvs_flash_init();
     if (err == ESP_ERR_NVS_NO_FREE_PAGES) {
@@ -130,9 +130,10 @@ void app_main(void)
     periph_wifi_wait_for_connected(wifi_handle, portMAX_DELAY);
 
 
-    ESP_LOGI(TAG, "[ 2 ] Start codec chip");
+    //ESP_LOGI(TAG, "[ 2 ] Start codec chip");
     audio_board_handle_t board_handle = audio_board_init();
-    audio_hal_ctrl_codec(board_handle->audio_hal, AUDIO_HAL_CODEC_MODE_ENCODE, AUDIO_HAL_CTRL_START);
+    //audio_hal_ctrl_codec(board_handle->audio_hal, AUDIO_HAL_CODEC_MODE_ENCODE, AUDIO_HAL_CTRL_START);
+    //audio_hal_deinit(board_handle->audio_hal);
 
     ESP_LOGI(TAG, "[3.0] Create audio pipeline for recording");
     audio_pipeline_cfg_t pipeline_cfg = DEFAULT_AUDIO_PIPELINE_CONFIG();
@@ -147,8 +148,30 @@ void app_main(void)
     http_stream_writer = http_stream_init(&http_cfg);
 
     ESP_LOGI(TAG, "[3.2] Create i2s stream to read audio data from codec chip");
-    i2s_stream_cfg_t i2s_cfg = I2S_STREAM_CFG_DEFAULT();
-    i2s_cfg.type = AUDIO_STREAM_READER;
+    i2s_stream_cfg_t i2s_cfg = {                                   
+        .type = AUDIO_STREAM_READER,
+        .task_prio = I2S_STREAM_TASK_PRIO,                         
+        .task_core = I2S_STREAM_TASK_CORE,                         
+        .task_stack = I2S_STREAM_TASK_STACK,                       
+        .out_rb_size = I2S_STREAM_RINGBUFFER_SIZE,                 
+        .i2s_config = {                                            
+            .mode = I2S_MODE_MASTER | I2S_MODE_RX,                 
+            .sample_rate = 48000,                                  
+            .bits_per_sample = 16,                                 
+            .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT,          
+            .communication_format = I2S_COMM_FORMAT_I2S | I2S_COMM_FORMAT_I2S_MSB,           
+            .dma_buf_count = 3,                                    
+            .dma_buf_len = 300,                                    
+            .use_apll = 1,                                         
+            .intr_alloc_flags = ESP_INTR_FLAG_LEVEL2,              
+            .tx_desc_auto_clear = true,                            
+        },                                                         
+        .i2s_port = 0,                                             
+        .use_alc = false,                                          
+        .volume = 0,                                               
+        .multi_out_num = 0,                                        
+        .uninstall_drv = true,                                     
+    };
 #if defined CONFIG_ESP_LYRAT_MINI_V1_1_BOARD
     i2s_cfg.i2s_port = 1;
 #endif
@@ -171,7 +194,7 @@ void app_main(void)
     ESP_LOGI(TAG, "[4.2] Listening event from peripherals");
     audio_event_iface_set_listener(esp_periph_set_get_event_iface(set), evt);
 
-    i2s_stream_set_clk(i2s_stream_reader, 16000, 16, 2);
+    // TODO i2s_stream_set_clk(i2s_stream_reader, 16000, 16, 2);
 
     ESP_LOGI(TAG, "[ 5 ] Listen for all pipeline events");
     while (1) {
@@ -182,20 +205,23 @@ void app_main(void)
             ESP_LOGE(TAG, "[ * ] Event interface error : %d", ret);
             continue;
         }
+        ESP_LOGI(TAG, "[ * ] msg type : %d", msg.source_type);
+        ESP_LOGI(TAG, "[ * ] msg data : %d", (int)msg.data);
+        ESP_LOGI(TAG, "[ * ] msg cmd : %d", msg.cmd);
 
         if (msg.source_type != PERIPH_ID_BUTTON) {
             continue;
         }
 
         // It's not REC button
-        if ((int)msg.data == GPIO_NUM_39) {
-            break;
-        }
+        //if ((int)msg.data == GPIO_NUM_39) {
+        //    break;
+        //}
 
         // It's not REC button
-        if ((int)msg.data != GPIO_NUM_36) {
-            continue;
-        }
+        //if ((int)msg.data != GPIO_NUM_36) {
+        //    continue;
+        //}
 
         if (msg.cmd == PERIPH_BUTTON_PRESSED) {
             ESP_LOGI(TAG, "[ * ] Resuming pipeline");

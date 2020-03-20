@@ -64,11 +64,11 @@ typedef struct {
     .task_stack = I2S_STREAM_TASK_STACK,                                        \
     .out_rb_size = I2S_STREAM_RINGBUFFER_SIZE,                                  \
     .i2s_config = {                                                             \
-        .mode = I2S_MODE_MASTER | I2S_MODE_TX | I2S_MODE_RX,                    \
+        .mode = I2S_MODE_MASTER | I2S_MODE_RX,                    \
         .sample_rate = 44100,                                                   \
         .bits_per_sample = 16,                                                  \
         .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT,                           \
-        .communication_format = I2S_COMM_FORMAT_I2S,                            \
+        .communication_format = I2S_COMM_FORMAT_I2S | I2S_COMM_FORMAT_I2S_MSB,                            \
         .dma_buf_count = 3,                                                     \
         .dma_buf_len = 300,                                                     \
         .use_apll = 1,                                                          \
